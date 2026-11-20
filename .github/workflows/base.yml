@@ -1,0 +1,59 @@
+name: base
+
+on:
+  workflow_dispatch:
+    inputs:
+      wine-branch:
+        description: 'Wine branch'
+        required: false
+        default: 'stable'
+      wine-version:
+        description: 'Wine version'
+        required: false
+        default: '11.0'
+      msvc-version:
+        description: 'MSVC version'
+        required: false
+        default: '17.8'
+      win-sdk-version:
+        description: 'Windows SDK version'
+        required: false
+        default: '10.0.22621'
+
+jobs:
+  docker:
+    runs-on: arc-k8s
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ secrets.REGISTRY_URL }}/${{ github.repository }}-base
+          tags: |
+            type=raw,value=wine-${{ inputs.wine-branch }}-${{ inputs.wine-version }}-msvc-${{ inputs.msvc-version }}-win-sdk-${{ inputs.win-sdk-version }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: base.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            WINE_BRANCH=${{ inputs.wine-branch }}
+            WINE_VERSION=${{ inputs.wine-version }}
+            MSVC_VERSION=${{ inputs.msvc-version }}
+            WIN_SDK_VERSION=${{ inputs.win-sdk-version }}

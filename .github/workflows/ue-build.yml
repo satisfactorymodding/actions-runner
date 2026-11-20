@@ -1,0 +1,82 @@
+name: ue-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      wine-branch:
+        description: 'Wine branch'
+        required: false
+        default: 'stable'
+      wine-version:
+        description: 'Wine version'
+        required: false
+        default: '11.0'
+      msvc-version:
+        description: 'MSVC version'
+        required: false
+        default: '17.8'
+      win-sdk-version:
+        description: 'Windows SDK version'
+        required: false
+        default: '10.0.22621'
+      ue-branch:
+        description: 'UE branch to cache dependencies for'
+        required: false
+        default: ''
+
+jobs:
+  docker:
+    runs-on: arc-k8s
+    steps:      
+      - uses: actions/checkout@v7
+
+      - name: Get current UE branch
+        id: ue-branch
+        uses: actions/github-script@v7
+        env:
+          UE_BRANCH: ${{ inputs.ue-branch }}
+        with:
+          github-token: ${{ secrets.BOT_TOKEN }}
+          script: |
+            const branch = process.env.UE_BRANCH;
+            if (branch) {
+              core.setOutput('ue_branch', branch);
+            } else {
+              const repo = await github.rest.repos.get({
+                owner: 'satisfactorymodding',
+                repo: 'UnrealEngine',
+              });
+              core.setOutput('ue_branch', repo.data.default_branch);
+            }
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ secrets.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ secrets.REGISTRY_URL }}/${{ github.repository }}-ue-build
+          tags: |
+            type=raw,value=wine-${{ inputs.wine-branch }}-${{ inputs.wine-version }}-msvc-${{ inputs.msvc-version }}-win-sdk-${{ inputs.win-sdk-version }}-ue-${{ steps.ue-branch.outputs.ue_branch }}
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ue-build.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ secrets.REGISTRY_URL }}/${{ github.repository }}-base:wine-${{ inputs.wine-branch }}-${{ inputs.wine-version }}-msvc-${{ inputs.msvc-version }}-win-sdk-${{ inputs.win-sdk-version }}
+            UE_COMMITISH=${{ steps.ue-branch.outputs.ue_branch }}
+          secrets: |
+            GH_TOKEN=${{ secrets.BOT_TOKEN }}
