@@ -12,6 +12,7 @@ FROM $IMAGE_BASE AS wine-builder
 
 ARG WINE_BRANCH
 ARG WINE_VERSION
+ARG BUILD_JOBS=16
 
 RUN sudo apt update && \
     sudo apt install -y --no-install-recommends build-essential wget curl ca-certificates devscripts debhelper fakeroot
@@ -37,7 +38,7 @@ RUN sudo mkdir -p /build/wine && sudo chown runner:docker /build/wine && cd /bui
     patch -p1 < ../wine_typelib.patch && \
     DEBEMAIL="ci@example.com" DEBFULLNAME="CI" \
     dch --local +patched --distribution $(lsb_release -cs) "Applied typelib patch" && \
-    DEB_BUILD_OPTIONS="nocheck nodoc parallel=$(nproc)" dpkg-buildpackage -b -uc -us
+    DEB_BUILD_OPTIONS="nocheck nodoc parallel=${BUILD_JOBS}" dpkg-buildpackage -b -uc -us
 
 FROM $IMAGE_BASE
 
