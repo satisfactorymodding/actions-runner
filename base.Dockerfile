@@ -32,7 +32,7 @@ RUN sudo mkdir -p /build/wine && sudo chown runner:docker /build/wine && cd /bui
     sed -i 's/--enable-win64/--enable-archs=i386,x86_64/' debian/rules && \
     echo /opt/wine-$WINE_BRANCH/lib/wine/i386-windows >> debian/wine-$WINE_BRANCH-amd64.install && \
     rm debian/wine-$WINE_BRANCH-i386.install && \
-    sed -i '/^Package: wine-$WINE_BRANCH-i386$/,/^$/d; /wine-$WINE_BRANCH-i386/d' debian/control && \
+    sed -i "/^Package: wine-$WINE_BRANCH-i386\$/,/^\$/d; /wine-$WINE_BRANCH-i386/d" debian/control && \
     sed -i 's/^Build-Depends: /Build-Depends: gcc-mingw-w64-i686, gcc-mingw-w64-x86-64, /' debian/control && \
     sudo apt build-dep -y . && \
     patch -p1 < ../wine_typelib.patch && \
